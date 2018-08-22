@@ -40,7 +40,7 @@ from utils import *
 
 parser = argparse.ArgumentParser(description='Moments spatial stream on resnet101')
 parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs')
-parser.add_argument('--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 25)')
+parser.add_argument('--batch_size', default=256, type=int, metavar='N', help='mini-batch size (default: 25)')
 parser.add_argument('--lr', default=5e-4, type=float, metavar='LR', help='initial learning rate')
 parser.add_argument('--evaluate', dest='evaluate', action='store_false', help='evaluate model on validation set')
 parser.add_argument('--resume', default='./record/spatial/model_best.pth.tar', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
@@ -164,7 +164,7 @@ class Spatial_CNN():
                     'state_dict': self.model.state_dict(),
                     'best_prec1': self.best_prec1,
                     'optimizer' : self.optimizer.state_dict()
-                },is_best,'record/spatial/checkpoint.pth.tar','record/spatial/model_best.pth.tar')
+                },is_best,'./saved_checkpoints/checkpoint.pth.tar','record/spatial/model_best.pth.tar')
 
     def train_1epoch(self):
         print('==> Epoch:[{0}/{1}][training stage]'.format(self.epoch, self.nb_epochs))
