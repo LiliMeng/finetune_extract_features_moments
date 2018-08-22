@@ -100,8 +100,7 @@ class Spatial_CNN():
         self.model = resnet50(pretrained=True, channel=3, num_classes=arg.num_classes).cuda()
         #Loss function and optimizer
         self.criterion = nn.CrossEntropyLoss().cuda()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), self.lr, momentum=0.9)
-        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer, 'min', patience=1,verbose=True)
     
     def resume_and_evaluate(self):
