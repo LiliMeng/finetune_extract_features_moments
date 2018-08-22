@@ -1,0 +1,5 @@
+__pycache__
+*.pyc
+moments_RGB_resnet50_imagenetpretrained.pth.tar
+stored_features/
+parent_dir/
