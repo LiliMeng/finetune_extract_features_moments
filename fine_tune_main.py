@@ -97,8 +97,9 @@ class Spatial_CNN():
     def build_model(self):
         print ('==> Build model and setup loss and optimizer')
         #build model
-        self.model = resnet50(pretrained=True).cuda()
-        self.model.fc = nn.Linear(512, 339)
+        self.model = resnet50(pretrained=True, num_classes=1000)
+        self.model.fc = nn.Linear(2048, 339)
+        self.model = self.model.cuda()
         #Loss function and optimizer
         self.criterion = nn.CrossEntropyLoss().cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
@@ -112,7 +113,7 @@ class Spatial_CNN():
             model = models.__dict__['resnet50'](num_classes=arg.num_classes)
             checkpoint = torch.load(self.resume)
             state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
-            model.load_state_dict(state_dict)
+            self.model.load_state_dict(state_dict)
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             print(model.state_dict())
         else:

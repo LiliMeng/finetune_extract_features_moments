@@ -95,7 +95,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=339):
+    def __init__(self, block, layers, num_classes=1000):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -108,7 +108,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AvgPool2d(7, stride=1)
-        self.Linear = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -220,7 +220,6 @@ def weight_transform(model_dict, pretrain_dict, channel):
     #print pretrain_dict.keys()
     w3 = pretrain_dict['conv1.weight']
     
-    #print type(w3)
     if channel == 3:
         wt = w3
     else:
@@ -233,8 +232,7 @@ def weight_transform(model_dict, pretrain_dict, channel):
 def change_layer_name(model_dict):
     weight_dict  = {k:v for k, v in model_dict.items()}
     #print pretrain_dict.keys()
-    print("weight_dict")
-    print(weight_dict)
+    
     weight_dict['fc.weight'] = weight_dict['Linear.weight']
     del weight_dict['Linear.weight']
 
@@ -245,8 +243,9 @@ def change_layer_name(model_dict):
     return model_dict
 
 if __name__ == '__main__':
-    model = resnet50(pretrained= True, num_classes=339)
-    model_dict = model.state_dict()
-    new_model_dict = change_layer_name(model_dict) 
-    model.load_state_dict(new_model_dict)
+    model = resnet50(pretrained= True, num_classes=1000)
+    model.fc = nn.Linear(2048,339)
+    #model_dict = model.state_dict()
+    #new_model_dict = change_layer_name(model_dict) 
+    #model.load_state_dict(new_model_dict)
     print(model.state_dict())
