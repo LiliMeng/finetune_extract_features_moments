@@ -155,6 +155,72 @@ class ResNet(nn.Module):
 
         return x
 
+class Downsample_ResNet(nn.Module):
+
+    def __init__(self, block, layers, num_classes=1000):
+        self.inplanes = 64
+        super(Downsample_ResNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.layer5 = nn.Sequential(
+               nn.Conv2d(2048, 256, kernel_size=3, padding=1, bias=False),
+               nn.BatchNorm2d(256),
+               nn.ReLU())
+        self.avgpool = nn.AvgPool2d(7, stride=1)
+        self.fc_downsample = nn.Linear(256, num_classes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                #nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+                #nn.init.constant_(m.weight, 1)
+                #nn.init.constant_(m.bias, 0)
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+
+        return x
+
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
@@ -185,13 +251,28 @@ def resnet50(pretrained=False, num_classes=339, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
     if pretrained:
-        pretrain_dict = model_zoo.load_url(model_urls['resnet50'])                  # modify pretrain code
-        model_dict = model.state_dict()
-        model_dict= weight_transform(model_dict, pretrain_dict, channel=3)
+        model_dict = model_zoo.load_url(model_urls['resnet50'])                  # modify pretrain code
+    
         model.load_state_dict(model_dict)
 
     return model
 
+def downsample_resnet50(pretrained=False, num_classes=339, **kwargs):
+    """Constructs a ResNet-50 model.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    org_model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=1000, **kwargs)
+    model = Downsample_ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, **kwargs)
+    model_dict = model.state_dict()
+    if pretrained:
+        org_model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+        pretrain_dict = org_model.state_dict()
+        pretrain_dict = {k: v for k, v in pretrain_dict.items() if k in model_dict}
+        model_dict.update(pretrain_dict)
+        model.load_state_dict(model_dict)
+
+    return model
 
 def resnet101(pretrained=False, **kwargs):
     """Constructs a ResNet-101 model.
@@ -229,22 +310,11 @@ def weight_transform(model_dict, pretrain_dict, channel):
     model_dict.update(weight_dict)
     return model_dict
 
-def change_layer_name(model_dict):
-    weight_dict  = {k:v for k, v in model_dict.items()}
-    #print pretrain_dict.keys()
-    
-    weight_dict['fc.weight'] = weight_dict['Linear.weight']
-    del weight_dict['Linear.weight']
 
-    weight_dict['fc.bias'] = weight_dict['Linear.bias']
-    del weight_dict['Linear.bias']
-
-    model_dict.update(weight_dict)
-    return model_dict
 
 if __name__ == '__main__':
-    model = resnet50(pretrained= True, num_classes=1000)
-    model.fc = nn.Linear(2048,339)
+    model = downsample_resnet50(pretrained= True, num_classes=1000)
+    
     #model_dict = model.state_dict()
     #new_model_dict = change_layer_name(model_dict) 
     #model.load_state_dict(new_model_dict)
