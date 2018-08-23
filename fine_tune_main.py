@@ -43,7 +43,7 @@ parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number
 parser.add_argument('--batch_size', default=256, type=int, metavar='N', help='mini-batch size (default: 25)')
 parser.add_argument('--lr', default=5e-4, type=float, metavar='LR', help='initial learning rate')
 parser.add_argument('--evaluate', dest='evaluate', action='store_false', help='evaluate model on validation set')
-parser.add_argument('--resume', default='./record/spatial/model_best.pth.tar', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
+parser.add_argument('--resume', default='moments_RGB_resnet50_imagenetpretrained.pth.tar', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('--num_classes', default=339, type=int, metavar='N', help='number of classes in the dataset')
 
@@ -97,23 +97,29 @@ class Spatial_CNN():
     def build_model(self):
         print ('==> Build model and setup loss and optimizer')
         #build model
-        self.model = resnet50(pretrained=True, channel=3, num_classes=arg.num_classes).cuda()
+        self.model = resnet50(pretrained=True).cuda()
+        self.model.fc = nn.Linear(512, 339)
         #Loss function and optimizer
         self.criterion = nn.CrossEntropyLoss().cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer, 'min', patience=1,verbose=True)
     
     def resume_and_evaluate(self):
-        weight_file = 'moments_RGB_resnet50_imagenetpretrained.pth.tar'
-        if not os.access(weight_file, os.W_OK):
-            weight_url = 'http://moments.csail.mit.edu/moments_models/' + weight_file
-            os.system('wget ' + weight_url)
-        model = models.__dict__['resnet50'](num_classes=arg.num_classes)
-        checkpoint = torch.load(weight_file)
-        state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
-        model.load_state_dict(state_dict)
+        if self.resume:
+            if not os.access(self.resume, os.W_OK):
+                weight_url = 'http://moments.csail.mit.edu/moments_models/' + weight_file
+                os.system('wget ' + weight_url)
+            model = models.__dict__['resnet50'](num_classes=arg.num_classes)
+            checkpoint = torch.load(self.resume)
+            state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
+            model.load_state_dict(state_dict)
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            print(model.state_dict())
+        else:
+            print("==> no checkpoint found at '{}'".format(self.resume))
+
         # if self.resume:
-        #     model = load_model(model_id, categories).cuda()
+        #     
         #     if os.path.isfile(self.resume):
         #         print("==> loading checkpoint '{}'".format(self.resume))
         #         checkpoint = torch.load(self.resume)
@@ -263,7 +269,7 @@ class Spatial_CNN():
                 'Loss':round(video_loss[0],5),
                 'Prec@1':round(video_top1,3),
                 'Prec@5':round(video_top5,3)}
-        record_info(info, 'record/spatial/rgb_test.csv','test')
+        record_info(info, './saved_checkpoints/rgb_test.csv','test')
         
         return video_top1, video_loss[0]
 
